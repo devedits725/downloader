@@ -1,1 +1,493 @@
+<!DOCTYPE html>
 
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FastDL</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
+
+:root {
+–bg: #0a0a0a;
+–surface: #111;
+–border: #222;
+–accent: #00ff88;
+–accent2: #ff3c6e;
+–text: #f0f0f0;
+–muted: #555;
+–radius: 6px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+background: var(–bg);
+color: var(–text);
+font-family: ‘Space Mono’, monospace;
+min-height: 100vh;
+display: flex;
+flex-direction: column;
+align-items: center;
+padding: 40px 16px 80px;
+}
+
+/* noise overlay */
+body::before {
+content: ‘’;
+position: fixed;
+inset: 0;
+background-image: url(“data:image/svg+xml,%3Csvg viewBox=‘0 0 200 200’ xmlns=‘http://www.w3.org/2000/svg’%3E%3Cfilter id=‘n’%3E%3CfeTurbulence type=‘fractalNoise’ baseFrequency=‘0.75’ numOctaves=‘4’ stitchTiles=‘stitch’/%3E%3C/filter%3E%3Crect width=‘100%25’ height=‘100%25’ filter=‘url(%23n)’ opacity=‘0.04’/%3E%3C/svg%3E”);
+pointer-events: none;
+z-index: 0;
+opacity: .5;
+}
+
+.wrap { position: relative; z-index: 1; width: 100%; max-width: 680px; }
+
+header {
+display: flex;
+align-items: baseline;
+gap: 12px;
+margin-bottom: 40px;
+}
+header h1 {
+font-family: ‘Syne’, sans-serif;
+font-size: clamp(2rem, 6vw, 3.2rem);
+font-weight: 800;
+letter-spacing: -2px;
+line-height: 1;
+}
+header h1 span { color: var(–accent); }
+header .tag {
+font-size: 10px;
+letter-spacing: 2px;
+text-transform: uppercase;
+color: var(–muted);
+border: 1px solid var(–border);
+padding: 3px 8px;
+border-radius: 20px;
+}
+
+/* ── INPUT ZONE ── */
+.input-zone {
+background: var(–surface);
+border: 1px solid var(–border);
+border-radius: var(–radius);
+padding: 20px;
+margin-bottom: 12px;
+}
+.row { display: flex; gap: 10px; flex-wrap: wrap; }
+.field { flex: 1 1 200px; display: flex; flex-direction: column; gap: 6px; }
+.field label { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(–muted); }
+.field input {
+background: var(–bg);
+border: 1px solid var(–border);
+color: var(–text);
+font-family: ‘Space Mono’, monospace;
+font-size: 13px;
+padding: 10px 12px;
+border-radius: var(–radius);
+outline: none;
+transition: border-color .2s;
+width: 100%;
+}
+.field input:focus { border-color: var(–accent); }
+.field input::placeholder { color: var(–muted); }
+
+.actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+.btn {
+font-family: ‘Space Mono’, monospace;
+font-size: 12px;
+letter-spacing: 1px;
+text-transform: uppercase;
+padding: 10px 18px;
+border-radius: var(–radius);
+border: none;
+cursor: pointer;
+transition: opacity .15s, transform .1s;
+}
+.btn:active { transform: scale(.97); }
+.btn-primary { background: var(–accent); color: #000; font-weight: 700; }
+.btn-primary:hover { opacity: .85; }
+.btn-ghost { background: transparent; color: var(–muted); border: 1px solid var(–border); }
+.btn-ghost:hover { border-color: var(–accent2); color: var(–accent2); }
+.btn-danger { background: transparent; color: var(–accent2); border: 1px solid var(–accent2); }
+.btn-danger:hover { background: var(–accent2); color: #fff; }
+
+/* ── BULK PASTE ── */
+.bulk-zone {
+background: var(–surface);
+border: 1px solid var(–border);
+border-radius: var(–radius);
+padding: 16px 20px;
+margin-bottom: 24px;
+}
+.bulk-zone textarea {
+width: 100%;
+background: var(–bg);
+border: 1px solid var(–border);
+color: var(–text);
+font-family: ‘Space Mono’, monospace;
+font-size: 12px;
+padding: 10px 12px;
+border-radius: var(–radius);
+resize: vertical;
+min-height: 80px;
+outline: none;
+margin-top: 8px;
+transition: border-color .2s;
+}
+.bulk-zone textarea:focus { border-color: var(–accent); }
+.bulk-zone textarea::placeholder { color: var(–muted); }
+.section-label {
+font-size: 10px;
+letter-spacing: 2px;
+text-transform: uppercase;
+color: var(–muted);
+}
+
+/* ── QUEUE ── */
+.queue-header {
+display: flex;
+justify-content: space-between;
+align-items: center;
+margin-bottom: 12px;
+}
+.queue-title { font-family: ‘Syne’, sans-serif; font-size: 14px; font-weight: 700; }
+.queue-stats { font-size: 11px; color: var(–muted); }
+
+#queue { display: flex; flex-direction: column; gap: 8px; }
+
+.item {
+background: var(–surface);
+border: 1px solid var(–border);
+border-radius: var(–radius);
+padding: 14px 16px;
+display: grid;
+grid-template-columns: 1fr auto;
+gap: 8px 14px;
+align-items: center;
+animation: fadeIn .25s ease;
+transition: border-color .2s;
+}
+.item:hover { border-color: #333; }
+@keyframes fadeIn { from { opacity:0; transform: translateY(6px); } to { opacity:1; transform:none; } }
+
+.item-info { min-width: 0; }
+.item-name {
+font-size: 13px;
+font-weight: 700;
+white-space: nowrap;
+overflow: hidden;
+text-overflow: ellipsis;
+margin-bottom: 4px;
+}
+.item-url {
+font-size: 11px;
+color: var(–muted);
+white-space: nowrap;
+overflow: hidden;
+text-overflow: ellipsis;
+}
+
+.item-btns { display: flex; gap: 6px; flex-shrink: 0; }
+.dl-btn {
+display: inline-flex;
+align-items: center;
+gap: 6px;
+font-family: ‘Space Mono’, monospace;
+font-size: 11px;
+font-weight: 700;
+letter-spacing: 1px;
+text-transform: uppercase;
+text-decoration: none;
+padding: 7px 14px;
+border-radius: var(–radius);
+background: var(–accent);
+color: #000;
+border: none;
+cursor: pointer;
+transition: opacity .15s, transform .1s;
+white-space: nowrap;
+}
+.dl-btn:active { transform: scale(.96); }
+.dl-btn:hover { opacity: .85; }
+.dl-btn.done { background: #1a3a2a; color: var(–accent); }
+
+.del-btn {
+background: transparent;
+border: 1px solid #2a2a2a;
+color: var(–muted);
+border-radius: var(–radius);
+padding: 7px 10px;
+cursor: pointer;
+font-size: 14px;
+line-height: 1;
+transition: all .15s;
+}
+.del-btn:hover { border-color: var(–accent2); color: var(–accent2); }
+
+/* ── DOWNLOAD ALL BAR ── */
+.dl-all-bar {
+position: fixed;
+bottom: 0;
+left: 0;
+right: 0;
+background: #0d0d0d;
+border-top: 1px solid var(–border);
+padding: 14px 24px;
+display: flex;
+justify-content: center;
+align-items: center;
+gap: 16px;
+z-index: 10;
+font-size: 12px;
+color: var(–muted);
+transform: translateY(100%);
+transition: transform .3s cubic-bezier(.16,1,.3,1);
+}
+.dl-all-bar.visible { transform: translateY(0); }
+.dl-all-bar .btn-primary { padding: 12px 28px; font-size: 13px; }
+
+.empty-state {
+text-align: center;
+padding: 48px 0;
+color: var(–muted);
+font-size: 12px;
+letter-spacing: 1px;
+}
+.empty-state .icon { font-size: 32px; margin-bottom: 12px; display: block; opacity: .4; }
+
+/* toast */
+#toast {
+position: fixed;
+top: 20px;
+right: 20px;
+background: var(–accent);
+color: #000;
+font-family: ‘Space Mono’, monospace;
+font-size: 12px;
+font-weight: 700;
+letter-spacing: 1px;
+padding: 10px 18px;
+border-radius: var(–radius);
+z-index: 100;
+opacity: 0;
+transform: translateY(-10px);
+transition: all .25s;
+pointer-events: none;
+}
+#toast.show { opacity: 1; transform: none; }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>Fast<span>DL</span></h1>
+    <div class="tag">v1.0</div>
+  </header>
+
+  <!-- Single URL -->
+
+  <div class="input-zone">
+    <div class="row">
+      <div class="field">
+        <label>URL</label>
+        <input type="url" id="urlInput" placeholder="https://example.com/file.zip" />
+      </div>
+      <div class="field" style="flex: 0 1 180px;">
+        <label>Filename (optional)</label>
+        <input type="text" id="nameInput" placeholder="file.zip" />
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn btn-primary" onclick="addItem()">+ Add to Queue</button>
+      <button class="btn btn-ghost" onclick="addAndDownload()">⬇ Add &amp; Download</button>
+    </div>
+  </div>
+
+  <!-- Bulk paste -->
+
+  <div class="bulk-zone">
+    <div class="section-label">Bulk — one URL per line</div>
+    <textarea id="bulkInput" placeholder="https://example.com/a.zip&#10;https://example.com/b.mp4&#10;https://example.com/c.png"></textarea>
+    <div class="actions">
+      <button class="btn btn-primary" onclick="addBulk()">+ Add All to Queue</button>
+      <button class="btn btn-ghost" onclick="clearBulk()">Clear</button>
+    </div>
+  </div>
+
+  <!-- Queue -->
+
+  <div class="queue-header">
+    <div class="queue-title">Queue</div>
+    <div class="queue-stats" id="stats">0 files</div>
+  </div>
+  <div id="queue">
+    <div class="empty-state">
+      <span class="icon">📂</span>
+      Add URLs above to get started
+    </div>
+  </div>
+
+</div>
+
+<!-- Bottom bar -->
+
+<div class="dl-all-bar" id="dlBar">
+  <span id="dlBarCount">0 files ready</span>
+  <button class="btn btn-primary" onclick="downloadAll()">⬇ Download All</button>
+  <button class="btn btn-ghost" onclick="clearQueue()">Clear Queue</button>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  let queue = [];
+
+  function guessName(url) {
+    try {
+      const u = new URL(url);
+      const parts = u.pathname.split('/').filter(Boolean);
+      const last = parts[parts.length - 1] || '';
+      return last || u.hostname + '_file';
+    } catch { return 'download'; }
+  }
+
+  function addItem() {
+    const url = document.getElementById('urlInput').value.trim();
+    const name = document.getElementById('nameInput').value.trim();
+    if (!url) return flash('Enter a URL first', true);
+    pushItem(url, name || guessName(url));
+    document.getElementById('urlInput').value = '';
+    document.getElementById('nameInput').value = '';
+    flash('Added to queue');
+  }
+
+  function addAndDownload() {
+    const url = document.getElementById('urlInput').value.trim();
+    const name = document.getElementById('nameInput').value.trim() || guessName(url);
+    if (!url) return flash('Enter a URL first', true);
+    pushItem(url, name);
+    triggerDownload(url, name);
+    document.getElementById('urlInput').value = '';
+    document.getElementById('nameInput').value = '';
+    flash('Downloading…');
+  }
+
+  function addBulk() {
+    const lines = document.getElementById('bulkInput').value
+      .split('\n').map(l => l.trim()).filter(Boolean);
+    if (!lines.length) return flash('Paste some URLs first', true);
+    lines.forEach(url => pushItem(url, guessName(url)));
+    flash(`Added ${lines.length} file${lines.length !== 1 ? 's' : ''}`);
+  }
+
+  function clearBulk() {
+    document.getElementById('bulkInput').value = '';
+  }
+
+  function pushItem(url, name) {
+    const id = Date.now() + Math.random();
+    queue.push({ id, url, name, done: false });
+    render();
+  }
+
+  function removeItem(id) {
+    queue = queue.filter(i => i.id !== id);
+    render();
+  }
+
+  function clearQueue() {
+    queue = [];
+    render();
+  }
+
+  function triggerDownload(url, name) {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name || '';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => a.remove(), 500);
+  }
+
+  function downloadOne(id) {
+    const item = queue.find(i => i.id === id);
+    if (!item) return;
+    triggerDownload(item.url, item.name);
+    item.done = true;
+    render();
+  }
+
+  async function downloadAll() {
+    if (!queue.length) return;
+    for (let i = 0; i < queue.length; i++) {
+      const item = queue[i];
+      triggerDownload(item.url, item.name);
+      item.done = true;
+      // stagger slightly so browser doesn't choke
+      await new Promise(r => setTimeout(r, 150));
+    }
+    render();
+    flash(`Triggered ${queue.length} download${queue.length !== 1 ? 's' : ''}`);
+  }
+
+  function render() {
+    const el = document.getElementById('queue');
+    const bar = document.getElementById('dlBar');
+    const stats = document.getElementById('stats');
+    const barCount = document.getElementById('dlBarCount');
+
+    stats.textContent = `${queue.length} file${queue.length !== 1 ? 's' : ''}`;
+    barCount.textContent = `${queue.length} file${queue.length !== 1 ? 's' : ''} ready`;
+    bar.classList.toggle('visible', queue.length > 0);
+
+    if (!queue.length) {
+      el.innerHTML = `<div class="empty-state"><span class="icon">📂</span>Add URLs above to get started</div>`;
+      return;
+    }
+
+    el.innerHTML = queue.map(item => `
+      <div class="item" id="item-${item.id}">
+        <div class="item-info">
+          <div class="item-name">${esc(item.name)}</div>
+          <div class="item-url">${esc(item.url)}</div>
+        </div>
+        <div class="item-btns">
+          <button class="dl-btn ${item.done ? 'done' : ''}" onclick="downloadOne(${item.id})">
+            ${item.done ? '✓ Done' : '⬇ DL'}
+          </button>
+          <button class="del-btn" onclick="removeItem(${item.id})" title="Remove">✕</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function esc(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  let toastTimer;
+  function flash(msg, err = false) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.background = err ? 'var(--accent2)' : 'var(--accent)';
+    t.style.color = err ? '#fff' : '#000';
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+  }
+
+  // Allow Enter key in URL input
+  document.getElementById('urlInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') addItem();
+  });
+</script>
+
+</body>
+</html>
